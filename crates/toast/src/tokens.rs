@@ -103,7 +103,7 @@ impl Debug for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::Number(n) => Debug::fmt(n,f),
-            Literal::String(s) => write!(f,"<[STR]{s}>")
+            Literal::String(s) => write!(f,"<[STR{}]{:?}>",s.len(),s)
         }
     }
 }
@@ -122,7 +122,7 @@ impl Debug for Token {
         match self {
             Self::Bracket {bracket,state}=>write!(f,"<{:?}{:?}>",state,bracket),
             Self::Literal (l)=> Debug::fmt(l,f),
-            Self::Identifier(id)=>write!(f, "<[ID]{id}>"),
+            Self::Identifier(id)=>write!(f, "<[ID]{:?}>",id),
             Self::Keyword(kw)=>write!(f, "<[KW]{:?}>",kw),
         }
     }

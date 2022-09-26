@@ -151,6 +151,7 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                     let mut was_escaped = false;
                     let mut quote_closed = false;
                     let string_literal_iter = BorrowedFilterMap::new(&mut self.source,|c| {
+                        println!("C:{}; escaped?{}",c,was_escaped);
                         if was_escaped {
                             was_escaped =false;
                             Some(Some(match c{
@@ -165,7 +166,7 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                             quote_closed = true;
                             None
                         } else if c==&'\\'{
-                            was_escaped =false;
+                            was_escaped =true;
                             Some(None)
                         }else {
                             Some(Some(*c))

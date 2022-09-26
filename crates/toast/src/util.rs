@@ -1,5 +1,4 @@
 use std::iter::Peekable;
-use std::ops::ControlFlow;
 
 pub struct BorrowedFilter<'i,I:Iterator,F> {
     iter: &'i mut Peekable<I>,

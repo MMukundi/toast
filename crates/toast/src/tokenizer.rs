@@ -1,5 +1,4 @@
 use std::iter::Peekable;
-use std::marker::PhantomData;
 use crate::tokens::{Bracket, BracketState, Literal, NumericLiteral, Sign, Token,Keyword};
 use crate::util::{BorrowedFilterMap, BorrowedFilter};
 
@@ -141,8 +140,8 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                         unreachable!("Unexpected negative!");
                     }
                 }
-                else if c.is_alphabetic() {
-                    let ident_iter = BorrowedFilter::new(&mut self.source,|c|c.is_alphanumeric());
+                else if c.is_alphabetic() || c == '_' {
+                    let ident_iter = BorrowedFilter::new(&mut self.source,|c|c.is_alphanumeric()|| c == &'_');
                     let s:String = ident_iter.collect();
                     Some(s.parse::<Keyword>().map(Token::Keyword).unwrap_or(Token::Identifier(s)))
                 }

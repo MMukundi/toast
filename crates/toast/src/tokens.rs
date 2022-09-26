@@ -103,7 +103,7 @@ impl Debug for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::Number(n) => Debug::fmt(n,f),
-            Literal::String(s) => write!(f,"<[STR{}]{:?}>",s.len(),s)
+            Literal::String(s) => write!(f,"<[STR, {}]{:?}>",s.len(),s)
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter, write};
 use std::str::FromStr;
 
 #[derive(Debug,Copy, Clone,Eq, PartialEq)]
@@ -40,7 +41,6 @@ pub enum Keyword {
 pub struct UnknownKeyword(pub String);
 impl FromStr for Keyword {
     type Err = UnknownKeyword;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "print" => Ok(Self::Print),
@@ -50,33 +50,64 @@ impl FromStr for Keyword {
         }
     }
 }
-#[derive(Debug, Clone, PartialEq)]
+
+
+#[derive(Debug, Clone,Copy, PartialEq,Eq)]
+pub enum Sign {
+    Positive,
+    Negative
+}
+impl Sign {
+    pub fn flip(&mut self) {
+        *self = match self {
+            Self::Positive => Self::Negative,
+            Self::Negative => Self::Positive
+        };
+    }
+}
+
+#[derive(Clone, PartialEq)]
 pub enum NumericLiteral {
     Integer(isize),
     Decimal{
-        integer_part:isize,
-        fractional_part:f64
+        sign:Sign,
+        integer_part:usize,
+        fraction_numerator:usize,
+        fraction_denominator:usize,
     },
 }
-impl NumericLiteral{
-    pub fn integer_part(&mut self)->&mut isize{
+impl Debug for NumericLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Integer(i)=> i,
-            Self::Decimal { integer_part, .. } => integer_part
+            NumericLiteral::Integer(v) => write!(f, "<[Integer]{v}>"),
+            NumericLiteral::Decimal { sign,integer_part,fraction_numerator,fraction_denominator } => {
+                write!(f,"<[Float]{}{integer_part} {fraction_numerator}/{fraction_denominator}>",if *sign==Sign::Negative {"-"}else{""})
+            }
         }
     }
-    pub fn negated(mut self)->Self{
-        let ip = self.integer_part();
-        *ip *= -1;
-        self
+}
+impl NumericLiteral{
+    pub fn negate(&mut self){
+        match self {
+            Self::Decimal {sign,..}=>sign.flip(),
+            Self::Integer(value)=>{*value*=-1;}
+        };
     }
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Literal {
     Number(NumericLiteral),
     String(String),
 }
-#[derive(Debug, Clone, PartialEq)]
+impl Debug for Literal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::Number(n) => Debug::fmt(n,f),
+            Literal::String(s) => write!(f,"<[STR]{s}>")
+        }
+    }
+}
+#[derive(Clone, PartialEq)]
 pub enum Token {
     Bracket{
         bracket:Bracket,
@@ -84,4 +115,15 @@ pub enum Token {
     },
     Literal(Literal),
     Identifier(String),
+    Keyword(Keyword),
+}
+impl Debug for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bracket {bracket,state}=>write!(f,"<{:?}{:?}>",state,bracket),
+            Self::Literal (l)=> Debug::fmt(l,f),
+            Self::Identifier(id)=>write!(f, "<[ID]{id}>"),
+            Self::Keyword(kw)=>write!(f, "<[KW]{:?}>",kw),
+        }
+    }
 }

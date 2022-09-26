@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 use std::marker::PhantomData;
-use crate::tokens::{Bracket, BracketState, Literal, NumericLiteral, Token};
+use crate::tokens::{Bracket, BracketState, Literal, NumericLiteral, Sign, Token,Keyword};
 use crate::util::{BorrowedFilterMap, BorrowedFilter};
 
 pub struct Tokens<I:Iterator> {
@@ -45,7 +45,7 @@ fn parse_float_or_integer<I:Iterator<Item=char>>(peekable_source: &mut Peekable<
         let (numerator,denominator) = digits(peekable_source,radix).fold((0,1),|(numerator,denominator),next_digit |{
             (numerator*radix as usize+next_digit as usize, denominator*radix as usize)
         });
-        Some(NumericLiteral::Decimal{integer_part:integer_part.unwrap_or_default() as isize, fractional_part:(numerator as f64)/(denominator as f64)})
+        Some(NumericLiteral::Decimal{ sign: Sign::Positive, integer_part:integer_part.unwrap_or_default(), fraction_numerator:numerator ,fraction_denominator: denominator})
     }else {
         integer_part.map(|x|NumericLiteral::Integer(x as isize))
     }
@@ -134,15 +134,17 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                 }
                 else if c == '-' {
                     self.consume_current_char(); // Consume negation
-                    if let Some(num) = parse_positive_number(&mut self.source){ // -0x01FA7E, -0o04713 ,-0b0010110, -01239, -0x01FA7E.E, -0o04713.7 ,-0b0010110.00100, -01234.91
-                        Some(Token::Literal(Literal::Number(num.negated())))
+                    if let Some(mut num) = parse_positive_number(&mut self.source){ // -0x01FA7E, -0o04713 ,-0b0010110, -01239, -0x01FA7E.E, -0o04713.7 ,-0b0010110.00100, -01234.91
+                        num.negate();
+                        Some(Token::Literal(Literal::Number(num)))
                     } else{
                         unreachable!("Unexpected negative!");
                     }
                 }
                 else if c.is_alphabetic() {
                     let ident_iter = BorrowedFilter::new(&mut self.source,|c|c.is_alphanumeric());
-                    Some(Token::Identifier(ident_iter.collect()))
+                    let s:String = ident_iter.collect();
+                    Some(s.parse::<Keyword>().map(Token::Keyword).unwrap_or(Token::Identifier(s)))
                 }
                 else if c=='\"' {
                     self.consume_current_char(); // Consume quote

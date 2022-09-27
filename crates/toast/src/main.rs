@@ -1,5 +1,7 @@
 extern crate core;
 
+use std::io;
+use std::io::{BufRead, Read, Write};
 use crate::codegen::Backend;
 use crate::codegen::interpreter::Interpreter;
 use crate::parser::Parser;
@@ -13,17 +15,19 @@ mod expression;
 mod codegen;
 
 fn main() {
-    let prompt_str = ">> ";
-    print!("{}",prompt_str);
-    let mut input = std::io::stdin().lines().inspect(|_|{
-        print!("{}",prompt_str);
-    }).flatten().flat_map(|c|c.chars().chain(std::iter::once('\n')).collect::<Vec<_>>());
-
-    let tokens = tokenizer::Tokens::new(input);
-    let exprs = Parser::new(tokens);
+    // let mut stdin = std::io::stdin().lock();
+    let mut buffer = String::default();
+    let interpreter_input = std::iter::from_fn(||{
+        buffer.clear();
+        print!(">> ");
+        io::stdout().flush().expect("Flushing error");
+        std::io::stdin().read_line(&mut buffer).expect("Error reading input");
+        Some(buffer.chars().collect::<Vec<_>>().into_iter().chain(std::iter::once('\n')))
+    }).flatten();
+    let tokens = tokenizer::Tokens::new(interpreter_input);
+    let expressions = Parser::new(tokens);
     let mut interpreter = Interpreter::default();
-
-    for expr in exprs {
+    for expr in expressions {
         expr.map(|e|interpreter.process(e));
     }
 

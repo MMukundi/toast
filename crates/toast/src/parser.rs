@@ -1,5 +1,5 @@
 use std::iter::Peekable;
-use crate::expression::{BuiltIn, Call, CodeBlock, Definition, Expression, TopLevelExpression};
+use crate::expression::{BuiltIn, BuiltInFunction, Call, CodeBlock, Definition, Expression, TopLevelExpression};
 use crate::tokens::{Bracket, BracketState, Keyword, Token};
 use crate::util::BorrowedFilter;
 
@@ -15,7 +15,6 @@ impl <I:Iterator<Item=Token>> Parser<I> {
         }
     }
     pub fn parse_next_expr(&mut self) ->Option<Option<Expression>> {
-        println!("Parse step\n - Parsed: {:?}\n - Tokens left? {}",self.parsed,self.tokens.is_some());
         let tokens = if let Some(ts) = &mut self.tokens {
             ts
         } else {
@@ -28,16 +27,13 @@ impl <I:Iterator<Item=Token>> Parser<I> {
                 return self.parsed.pop().map(Some);
             }
         };
-        println!("Next_token: {:?}",&next);
         match next {
             Token::Bracket { state:BracketState::Open,bracket } => {
                 let mut close_missing:bool=true;
                 let mut bracket_stack:Vec<Bracket>=Default::default();
                 let mut between_brackets:Vec<Token>=Default::default();
                 bracket_stack.push(bracket);
-                println!("Opening {:?}",bracket);
                 while let Some(t) = tokens.peek(){
-                    dbg!(&t);
                     match &t {
                         Token::Bracket {bracket,state:BracketState::Close}=> {
                             if bracket_stack.last().map(|s|bracket==s).unwrap_or(false) {
@@ -58,9 +54,7 @@ impl <I:Iterator<Item=Token>> Parser<I> {
                     tokens.next().map(|n|between_brackets.push(n));
                 }
 
-                println!("Nesting :O, {:?}",&between_brackets);
                 let expressions: Vec<_> = Parser::new(between_brackets.into_iter()).flatten().collect();
-                dbg!(&expressions);
                 if close_missing{
                     panic!("Unclosed {:?} bracket",bracket);
                 } else {
@@ -111,7 +105,7 @@ impl <I:Iterator<Item=Token>> Parser<I> {
                         }))))
                     }
                     Keyword::Print => {
-                        self.parsed.push(Expression::BuiltIn(BuiltIn::Print));
+                        self.parsed.push(Expression::BuiltIn(BuiltIn::Function(BuiltInFunction::Print)));
                         Some(None)
                     }
                 }

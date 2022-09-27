@@ -74,11 +74,12 @@ fn consume_radix<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I>) ->Opt
 fn parse_positive_number<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I>) ->Option<NumericLiteral>{
     let first_char = peekable_source.peek();
     if let Some(&'0') = first_char { // 0x01FA7E, 0o04713 ,0b0010110, 01239, 0x01FA7E.E, 0o04713.7 ,0b0010110.00100, 01234.91
-        peekable_source.next(); // Consume negation
+        peekable_source.next(); // Consume 0
         let radix = consume_radix(peekable_source);
         let value = radix.and_then(|r|parse_float_or_integer(peekable_source,r,None));
         Some(value.unwrap_or(NumericLiteral::Integer(0)))
     } else if let Some(digit) = first_char.and_then(|c|c.to_digit(10))  {
+        peekable_source.next(); // Consume read digit
         parse_float_or_integer(peekable_source,10,Some(digit))
     }else{
         None

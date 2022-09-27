@@ -14,8 +14,16 @@ pub struct Call {
     pub value: Box<Expression>
 }
 #[derive(Debug, Clone, PartialEq)]
-pub enum BuiltIn{
+pub enum BuiltInFunction{
     Print
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum BuiltInConstant{
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum BuiltIn{
+    Function(BuiltInFunction),
+    Constant(BuiltInConstant)
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
@@ -23,6 +31,8 @@ pub enum Expression {
     Identifier(String),
     BuiltIn(BuiltIn),
     TopLevelExpression(TopLevelExpression),
+}
+impl Expression {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum TopLevelExpression {

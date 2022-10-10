@@ -84,6 +84,10 @@ impl <I:Iterator<Item=Token>> Parser<I> {
                 self.parsed.push(Expression::Identifier(id));
                 Some(None)
             },
+            Token::Operator(op) => {
+                self.parsed.push(Expression::BuiltIn(BuiltIn::Function(BuiltInFunction::MathOperator(op))));
+                Some(None)
+            },
             Token::Keyword(kw) => {
                 match kw {
                     Keyword::Def => {

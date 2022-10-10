@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::ops::Add;
 use std::ptr::write;
 use crate::codegen::Backend;
 use crate::expression::{BuiltIn, BuiltInFunction, CodeBlock, Expression, TopLevelExpression};
+use crate::tokens::{NumericLiteral, Operator, Literal};
 
 #[derive(Default)]
 pub struct Interpreter {
@@ -15,14 +17,50 @@ pub enum CallError {
     Uncallable
 }
 
+macro_rules! literals {
+    ($a:pat, $b:pat) => {
+        (
+            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number($a))),
+            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number($b)))
+        )
+    };
+}
 impl Interpreter {
+    pub fn eval(&self, expr:Expression) -> Option<Expression> {
+        let mut return_expr = Some(&expr);
+        while let Some(Expression::Identifier(name)) = &return_expr {
+            return_expr = self.var_defs.get(name);
+        };
+        return_expr.cloned()
+    }
+    #[inline]
+    pub fn pop_eval(&mut self)->Option<Expression>{
+        self.stack.pop().and_then(|e|self.eval(e))
+    }
     pub fn try_call(&mut self, expr:Expression)->Result<(),CallError>{
         match expr {
             Expression::BuiltIn(BuiltIn::Function(func))=>{
                 match func {
                     BuiltInFunction::Print => {
-                        let to_print = self.stack.pop().expect("Stack underflow");
+                        let to_print = self.pop_eval().expect("Stack underflow");
                         println!("{:?}",to_print);
+                    }
+                    BuiltInFunction::MathOperator(op) => {
+                        let top = self.pop_eval().expect(&format!("Stack underflow; need 2 arguments for {:?}",op));
+                        let bott = self.pop_eval().expect(&format!("Stack underflow; need 2 arguments for {:?}",op));
+                        if let (
+                            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number(n))),
+                            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number(d))),
+                        ) = (top,bott){
+                            let val = match op {
+                                Operator::Add => n+d,
+                                Operator::Sub => n-d,
+                                Operator::Mul => n*d,
+                                Operator::Div => n/d,
+                                Operator::Mod => n%d,
+                            };   
+                        } 
+                        todo!();
                     }
                 }
             },
@@ -31,8 +69,8 @@ impl Interpreter {
                     self.process(expr)
                 }
             },
-            Expression::Identifier(name) => {
-                let value = self.var_defs.get(&name).cloned().ok_or(CallError::UndefinedCallable)?;
+            ident@Expression::Identifier(_) => {
+                let value = self.eval(ident).ok_or(CallError::UndefinedCallable)?;
                 self.try_call(value)?;
             }
             e=>{

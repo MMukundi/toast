@@ -1,4 +1,4 @@
-use crate::tokens::Literal;
+use crate::tokens::{Literal, Operator};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CodeBlock{
@@ -15,8 +15,10 @@ pub struct Call {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltInFunction{
-    Print
+    Print,
+    MathOperator(Operator)
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltInConstant{
 }

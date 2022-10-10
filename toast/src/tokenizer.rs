@@ -1,5 +1,5 @@
 use std::iter::Peekable;
-use crate::tokens::{Bracket, BracketState, Literal, NumericLiteral, Sign, Token,Keyword};
+use crate::tokens::{Bracket, BracketState, Literal, NumericLiteral, Sign, Token, Keyword, Operator};
 use crate::util::{BorrowedFilterMap, BorrowedFilter};
 
 pub struct Tokens<I:Iterator> {
@@ -44,9 +44,9 @@ fn parse_float_or_integer<I:Iterator<Item=char>>(peekable_source: &mut Peekable<
         let (numerator,denominator) = digits(peekable_source,radix).fold((0,1),|(numerator,denominator),next_digit |{
             (numerator*radix as usize+next_digit as usize, denominator*radix as usize)
         });
-        Some(NumericLiteral::Decimal{ sign: Sign::Positive, integer_part:integer_part.unwrap_or_default(), fraction_numerator:numerator ,fraction_denominator: denominator})
+        Some(NumericLiteral{ sign: Sign::Positive, integer_part:integer_part.unwrap_or_default(), fractional_part: Some((numerator,denominator))})
     }else {
-        integer_part.map(|x|NumericLiteral::Integer(x as isize))
+        integer_part.map(|x|NumericLiteral::integer(x as isize))
     }
 }
 fn consume_radix<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I>) ->Option<u32>{
@@ -77,7 +77,7 @@ fn parse_positive_number<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I
         peekable_source.next(); // Consume 0
         let radix = consume_radix(peekable_source);
         let value = radix.and_then(|r|parse_float_or_integer(peekable_source,r,None));
-        Some(value.unwrap_or(NumericLiteral::Integer(0)))
+        Some(value.unwrap_or(NumericLiteral::integer(0)))
     } else if let Some(digit) = first_char.and_then(|c|c.to_digit(10))  {
         peekable_source.next(); // Consume read digit
         parse_float_or_integer(peekable_source,10,Some(digit))
@@ -138,8 +138,10 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                         num.negate();
                         Some(Token::Literal(Literal::Number(num)))
                     } else{
-                        unreachable!("Unexpected negative!");
+                        Some(Token::Operator(Operator::Sub))
                     }
+                }else if let Ok(op) = <Operator as TryFrom<char>>::try_from(c) {
+                    Some(Token::Operator(op))
                 }
                 else if c.is_alphabetic() || c == '_' {
                     let ident_iter = BorrowedFilter::new(&mut self.source,|c|c.is_alphanumeric()|| c == &'_');

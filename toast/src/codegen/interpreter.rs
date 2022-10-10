@@ -3,7 +3,8 @@ use std::ops::Add;
 use std::ptr::write;
 use crate::codegen::Backend;
 use crate::expression::{BuiltIn, BuiltInFunction, CodeBlock, Expression, TopLevelExpression};
-use crate::tokens::{NumericLiteral, Operator, Literal};
+use crate::tokens::{Operator, Literal};
+use crate::numeric_literal::NumericLiteral;
 
 #[derive(Default)]
 pub struct Interpreter {

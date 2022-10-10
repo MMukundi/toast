@@ -13,6 +13,7 @@ mod util;
 mod parser;
 mod expression;
 mod codegen;
+mod numeric_literal;
 
 fn main() {
     // let mut stdin = std::io::stdin().lock();

@@ -1,33 +1,93 @@
+use std::cell::{RefCell, Ref};
 use std::collections::HashMap;
+use std::io::{Write, Read, BufRead};
 use std::ops::Add;
 use std::ptr::write;
+use std::rc::Rc;
 use crate::codegen::Backend;
-use crate::expression::{BuiltIn, BuiltInFunction, CodeBlock, Expression, TopLevelExpression};
+use crate::expression::{BuiltIn, BuiltInFunction, CodeBlock, Expression};
+use crate::parser::Parser;
+use crate::tokenizer::Tokens;
 use crate::tokens::{Operator, Literal};
 use crate::numeric_literal::NumericLiteral;
 
-#[derive(Default)]
+pub trait Prompt:Write {
+    fn write_prompt(&mut self);
+    fn write_continue_prompt(&mut self);
+}
+
+#[derive(Default,Debug)]
 pub struct Interpreter {
     stack: Vec<Expression>,
     var_defs: HashMap<String,Expression>,
 }
 
+pub struct Prompter<R,W>{
+    read:R,
+    write:W,
+    is_new_prompt:Rc<RefCell<bool>>,
+    buffer:String,
+}
+impl <R:BufRead,W:Prompt>  Prompter<R,W> {
+    pub fn new(read:R,write:W)->Self{
+        Self {
+            read,
+            write,
+            is_new_prompt:Rc::new(RefCell::new(true)),
+            buffer:String::default()
+        }
+    }
+}
+
+impl <R:BufRead,W:Prompt> Iterator for Prompter<R,W> {
+    type Item=String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if *self.is_new_prompt.borrow() {
+            self.write.write_prompt();
+        }else {
+            self.write.write_continue_prompt();
+        }
+        self.write.flush();
+
+        *self.is_new_prompt.as_ref().borrow_mut() = false;
+
+        self.read.read_line(&mut self.buffer).expect("Error reading line");
+        Some(self.buffer.clone())
+    }
+}
+
+impl Interpreter {
+    pub fn run_in_prompter<R:BufRead,W:Prompt>(mut prompter:Prompter<R,W>) {
+        let is_new_prompt = Rc::clone(&prompter.is_new_prompt);
+        let input =prompter.map(|s|s.chars().chain(std::iter::once('\n')).collect::<Vec<_>>()).flatten();
+        let tokens = Tokens::new(input);
+        let mut expressions = Parser::new(tokens);
+
+        let mut interpreter = Self::default();
+        while let Some(expression) = expressions.next() {
+            // println!("start"); std::io::stdout().flush();
+            *is_new_prompt.as_ref().borrow_mut() = true;
+            interpreter.process(expression);
+            println!("[");
+            for e in interpreter.stack.iter().rev() {
+                println!(" {:?}",e);
+            }
+            println!("]");
+            std::io::stdout().flush();
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum CallError {
     UndefinedCallable,
-    Uncallable
+    Uncallable,
+    BadArguments,
 }
 
-macro_rules! literals {
-    ($a:pat, $b:pat) => {
-        (
-            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number($a))),
-            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number($b)))
-        )
-    };
-}
 impl Interpreter {
-    pub fn eval(&self, expr:Expression) -> Option<Expression> {
+    pub fn resolve(&self, expr:Expression) -> Option<Expression> {
         let mut return_expr = Some(&expr);
         while let Some(Expression::Identifier(name)) = &return_expr {
             return_expr = self.var_defs.get(name);
@@ -35,33 +95,37 @@ impl Interpreter {
         return_expr.cloned()
     }
     #[inline]
-    pub fn pop_eval(&mut self)->Option<Expression>{
-        self.stack.pop().and_then(|e|self.eval(e))
+    pub fn pop_resolve(&mut self)->Option<Expression>{
+        let expression = self.stack.pop()?;
+        self.resolve(expression)
     }
     pub fn try_call(&mut self, expr:Expression)->Result<(),CallError>{
         match expr {
-            Expression::BuiltIn(BuiltIn::Function(func))=>{
+            Expression::BuiltInIdentifier(BuiltIn::Function(func))=>{
                 match func {
                     BuiltInFunction::Print => {
-                        let to_print = self.pop_eval().expect("Stack underflow");
-                        println!("{:?}",to_print);
+                        let to_print = self.pop_resolve().expect("Stack underflow");
+                        dbg!(&to_print);
+                        println!("<{:?}>",to_print); std::io::stdout().flush();
                     }
-                    BuiltInFunction::MathOperator(op) => {
-                        let top = self.pop_eval().expect(&format!("Stack underflow; need 2 arguments for {:?}",op));
-                        let bott = self.pop_eval().expect(&format!("Stack underflow; need 2 arguments for {:?}",op));
+                    BuiltInFunction::MathOperator{operator,arguments} => {
+                        // dbg!(&self);
                         if let (
-                            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number(n))),
-                            Expression::TopLevelExpression(TopLevelExpression::Literal(Literal::Number(d))),
-                        ) = (top,bott){
-                            let val = match op {
+                            Expression::Literal(Literal::Number(n)),
+                            Expression::Literal(Literal::Number(d)),
+                        ) = *arguments {
+                            let val = match operator {
                                 Operator::Add => n+d,
                                 Operator::Sub => n-d,
                                 Operator::Mul => n*d,
                                 Operator::Div => n/d,
                                 Operator::Mod => n%d,
                             };   
-                        } 
-                        todo!();
+                            self.stack.push(Expression::Literal(Literal::Number(val)));
+                        }else {
+                            unimplemented!("Can only add numbers. Cannot add {:?}",arguments);
+                            return Err(CallError::BadArguments);
+                        }
                     }
                 }
             },
@@ -71,10 +135,10 @@ impl Interpreter {
                 }
             },
             ident@Expression::Identifier(_) => {
-                let value = self.eval(ident).ok_or(CallError::UndefinedCallable)?;
+                let value = self.resolve(ident).ok_or(CallError::UndefinedCallable)?;
                 self.try_call(value)?;
             }
-            e=>{
+            _=>{
                 return Err(CallError::Uncallable);
             }
         };
@@ -84,23 +148,25 @@ impl Interpreter {
 
 impl Backend for Interpreter {
     fn process(&mut self, expression: Expression) {
+        // println!("Expr: {:?}",&expression);
         match expression {
             Expression::CodeBlock(_) => {panic!("Cannot interpret codeblocks yet")}
             Expression::Identifier(name) => {
                 let value = self.var_defs.get(&name).cloned().expect(&format!("Undefined identifier: {name}"));
                 self.stack.push(value);
-            }
-            Expression::BuiltIn(_) => {panic!("Cannot interpret all built-ins yet")}
-            lit @ Expression::TopLevelExpression(TopLevelExpression::Literal(_)) => {
+            },
+            Expression::BuiltInIdentifier(_) => {panic!("Cannot interpret all built-ins yet")}
+            lit @ Expression::Literal(_) => {
+                // println!("Literal: {:?}",&lit);
                 self.stack.push(lit);
             }
-            Expression::TopLevelExpression(TopLevelExpression::Definition(define)) => {
+            Expression::Definition(define) => {
                 let _old_value =self.var_defs.insert(define.name,*define.value);
             }
-            Expression::TopLevelExpression(TopLevelExpression::Call(call)) => {
+            Expression::Call(call) => {
                 self.try_call(*call.value).unwrap();
             }
         };
-        println!("Variables: {:?}\nStack: {:?}",&self.var_defs,&self.stack)
+        // println!("Variables: {:?}\nStack: {:?}",&self.var_defs,&self.stack)
     }
 }

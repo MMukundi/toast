@@ -45,9 +45,9 @@ fn parse_float_or_integer<I:Iterator<Item=char>>(peekable_source: &mut Peekable<
         let (numerator,denominator) = digits(peekable_source,radix).fold((0,1),|(numerator,denominator),next_digit |{
             (numerator*radix as usize+next_digit as usize, denominator*radix as usize)
         });
-        Some(NumericLiteral{ sign: Sign::Positive, integer_part:integer_part.unwrap_or_default(), fractional_part: Some((numerator,denominator))})
+        Some(NumericLiteral::new(Sign::Positive, integer_part.unwrap_or_default(), Some((numerator,denominator))))
     }else {
-        integer_part.map(|x|NumericLiteral::integer(x as isize))
+        integer_part.map(|x|(x as isize).into())
     }
 }
 fn consume_radix<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I>) ->Option<u32>{
@@ -78,7 +78,7 @@ fn parse_positive_number<I:Iterator<Item=char>>(peekable_source: &mut Peekable<I
         peekable_source.next(); // Consume 0
         let radix = consume_radix(peekable_source);
         let value = radix.and_then(|r|parse_float_or_integer(peekable_source,r,None));
-        Some(value.unwrap_or(NumericLiteral::integer(0)))
+        Some(value.unwrap_or((0isize).into()))
     } else if let Some(digit) = first_char.and_then(|c|c.to_digit(10))  {
         peekable_source.next(); // Consume read digit
         parse_float_or_integer(peekable_source,10,Some(digit))
@@ -142,6 +142,7 @@ impl <I:Iterator<Item=char>>Iterator for Tokens<I>{
                         Some(Token::Operator(Operator::Sub))
                     }
                 }else if let Ok(op) = <Operator as TryFrom<char>>::try_from(c) {
+                    self.consume_current_char(); // Consume negation
                     Some(Token::Operator(op))
                 }
                 else if c.is_alphabetic() || c == '_' {

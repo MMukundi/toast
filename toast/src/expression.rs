@@ -16,7 +16,12 @@ pub struct Call {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltInFunction{
     Print,
-    MathOperator(Operator)
+    MathOperator{
+        operator:Operator,
+
+        /// top, then bottom
+        arguments: Box<(Expression,Expression)>
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,14 +36,12 @@ pub enum BuiltIn{
 pub enum Expression {
     CodeBlock(CodeBlock),
     Identifier(String),
-    BuiltIn(BuiltIn),
-    TopLevelExpression(TopLevelExpression),
-}
-impl Expression {
-}
-#[derive(Debug, Clone, PartialEq)]
-pub enum TopLevelExpression {
+
+    BuiltInIdentifier(BuiltIn),
+
     Definition(Definition),
     Literal(Literal),
     Call(Call),
+}
+impl Expression {
 }

@@ -1,17 +1,9 @@
-const TOAST_ASCII:&str = r#"  ###### ######
- #......#......#
- #.............#
-  #...........#
-  #...........#
-  #...........#
-  #...........#
-   ###########"#;
-
-pub fn hello_toast(){
-    println!("Welcome to Toast!");
-    println!("=================\n{TOAST_ASCII}\n=================");
-}
+mod args;
 
 fn main(){
-    hello_toast();
+    let args = {
+        use clap::Parser;
+        args::ToastArgs::parse()
+    };
+    dbg!(args);
 }

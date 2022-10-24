@@ -1,7 +1,7 @@
 //! This module contains all processing for the command line arguments
 //! To start, take a look at [`ToastArgs`]'
 
-pub const TOAST_ASCII:&str = r#"================
+pub const TOAST_ASCII: &str = r#"================
  ###### ######
 #......#......#
 #.............#
@@ -11,26 +11,25 @@ pub const TOAST_ASCII:&str = r#"================
   ###########
 ================"#;
 
-
-#[derive(Debug,Clone,Default,clap::ValueEnum)]
+#[derive(Debug, Clone, Default, clap::ValueEnum)]
 pub enum CompilerVerbosity {
     Verbose,
     #[default]
-    Silent
+    Silent,
 }
 
-#[derive(Debug,clap::Parser)]
-#[command(author, version, about= "The official Toastlang compiler")]
+#[derive(Debug, clap::Parser)]
+#[command(author, version, about = "The official Toastlang compiler")]
 pub struct ToastArgs {
     /// The path to the file which should be compiled
-    #[arg(value_name = "source")] 
-    pub source:String,
+    #[arg(value_name = "source")]
+    pub source: String,
     /// The file path where the compiled program should be stored
-    #[arg(short, long, value_name = "output")] 
-    pub output:Option<String>,
-    #[arg(default_value="silent",short, value_name = "verbosity")] 
-    pub verbosity:CompilerVerbosity,
-    // / The amount of logging the 
+    #[arg(short, long, value_name = "output")]
+    pub output: Option<String>,
+    #[arg(default_value = "silent", short, value_name = "verbosity")]
+    pub verbosity: CompilerVerbosity,
+    // / The amount of logging the
     // #[clap(flatten)]
     // pub verbosity:CompilerVerbosity,
 }

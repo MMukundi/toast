@@ -194,7 +194,7 @@ impl TryParseFromPeek<char> for TokenData {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Token {
     pub locaiton: FileLocation,
     pub token_data: TokenData,

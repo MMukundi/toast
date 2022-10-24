@@ -7,7 +7,7 @@ pub struct TokenScanner<T> {
 }
 
 impl<T> TokenScanner<T> {
-    fn new(t: T) -> Self {
+    pub fn new(t: T) -> Self {
         Self {
             lines: t,
             current_line: None,

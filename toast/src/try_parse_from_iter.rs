@@ -6,7 +6,7 @@ pub trait Peek {
     fn advance(&mut self)->Option<Self::Item>;
     fn peek(&mut self)->Option<&Self::Item>;
 
-    fn peek_while<F:FnMut(&Self::Item)->U,U>(self,f:F)->PeekWhile<Self,F> where Self:Sized{
+    fn peek_while<F:FnMut(&Self::Item)->Option<U>,U>(self,f:F)->PeekWhile<Self,F> where Self:Sized{
         PeekWhile { peek: self, func: f }
     }
 }

@@ -8,7 +8,7 @@ pub enum BracketState {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Bracket {
+pub enum BracketType {
     Parenthesis,
 }
 
@@ -66,7 +66,7 @@ impl TryParseFromPeek<char> for Operator {
         op
     }
 }
-impl Bracket {
+impl BracketType {
     pub fn open(&self) -> char {
         match self {
             Self::Parenthesis => '(',
@@ -78,22 +78,133 @@ impl Bracket {
         }
     }
 }
+impl TryFrom<char> for Bracket {
+    type Error = char;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            '(' => Ok(Self {
+                bracket: BracketType::Parenthesis,
+                state: BracketState::Open,
+            }),
+            ')' => Ok(Self {
+                bracket: BracketType::Parenthesis,
+                state: BracketState::Close,
+            }),
+            c => Err(c),
+        }
+    }
+}
+
+impl TryParseFromPeek<char> for Bracket {
+    type Err = Option<char>;
+    type ParseContext = ();
+    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char> + Clone>(
+        peek: &mut P,
+        _context: Self::ParseContext,
+    ) -> Result<Self, Self::Err> {
+        let c = *peek.peek().ok_or(None)?;
+        Bracket::try_from(c).map_err(Some).map(|c| {
+            peek.advance();
+            c
+        })
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct FileLocation {
+    pub line: usize,
+    pub column: usize,
+    // length: usize,
+}
+impl FileLocation {
+    pub fn new(line: usize, column: usize) -> Self {
+        Self { line, column }
+    }
+}
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum Token {
-    Bracket {
-        bracket: Bracket,
-        state: BracketState,
-    },
+pub struct Bracket {
+    bracket: BracketType,
+    state: BracketState,
+}
+impl Bracket {
+    pub fn new(bracket: BracketType, state: BracketState) -> Self {
+        Self { bracket, state }
+    }
+}
+impl Debug for Bracket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[Bracket: {:?}{:?}]", self.state, self.bracket)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum TokenData {
+    Bracket(Bracket),
     Number(isize),
     Operator(Operator),
 }
-impl Debug for Token {
+impl Debug for TokenData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bracket { bracket, state } => write!(f, "[Bracket: {:?}{:?}]", state, bracket),
+            Self::Bracket(b) => Debug::fmt(b, f),
             Self::Number(n) => write!(f, "[Number: {:?}]", n),
             Self::Operator(op) => Debug::fmt(op, f),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ParseTokenErr {
+    Empty,
+    UnexpectedCharacter(char),
+}
+impl TryParseFromPeek<char> for TokenData {
+    type Err = ParseTokenErr;
+    type ParseContext = ();
+    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char> + Clone>(
+        line: &mut P,
+        _context: Self::ParseContext,
+    ) -> Result<Self, Self::Err> {
+        let first_char = line.peek().ok_or(Self::Err::Empty)?;
+        if *first_char == '-' {
+            isize::try_parse_from_peek(line, 10)
+                .map(TokenData::Number)
+                .or(Ok(TokenData::Operator(Operator::Sub)))
+        } else {
+            isize::try_parse_from_peek(line, 10)
+                .map(TokenData::Number)
+                .or_else(|_| {
+                    Operator::try_parse_from_peek(line, ())
+                        .map(TokenData::Operator)
+                        .or_else(|e| match e {
+                            OperatorError::NoChar => Err(Self::Err::Empty),
+                            _ => Bracket::try_parse_from_peek(line, ())
+                                .map(TokenData::Bracket)
+                                .map_err(|e| {
+                                    if let Some(c) = e {
+                                        Self::Err::UnexpectedCharacter(c)
+                                    } else {
+                                        Self::Err::Empty
+                                    }
+                                }),
+                        })
+                })
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Token {
+    pub locaiton: FileLocation,
+    pub token_data: TokenData,
+}
+
+impl Token {
+    pub fn new(location: FileLocation, data: TokenData) -> Self {
+        Self {
+            locaiton: location,
+            token_data: data,
         }
     }
 }

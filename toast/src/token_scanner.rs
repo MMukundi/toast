@@ -1,4 +1,4 @@
-use crate::token::{Operator, Token};
+use crate::token::{FileLocation, Token, TokenData};
 use crate::try_parse_from_iter::{Peek, TryParseFromPeek};
 
 pub struct TokenScanner<T> {
@@ -37,7 +37,9 @@ impl<T: Iterator<Item = String>> Iterator for TokenScanner<T> {
         };
         let mut line_chars = current_line.chars().peekable();
         skip_whitespace(&mut line_chars);
-        let token = try_parse_next_token(&mut line_chars);
+        let token = TokenData::try_parse_from_peek(&mut line_chars, ())
+            .ok()
+            .map(|data| Token::new(FileLocation::new(0, 0), data));
         skip_whitespace(&mut line_chars);
         if token.is_some() {
             *current_line = line_chars.collect::<String>();
@@ -50,26 +52,9 @@ fn skip_whitespace<P: Peek<Item = char>>(peek: &mut P) {
     peek.peek_while(|c| c.is_whitespace().then_some(()))
         .for_each(drop);
 }
-
-fn try_parse_next_token<P: Peek<Item = char> + Clone>(line: &mut P) -> Option<Token> {
-    let save_state = line.clone();
-    let parsed_num = isize::try_parse_from_peek(line, 10);
-    if let Ok(n) = parsed_num {
-        return Some(Token::Number(n));
-    };
-    *line = save_state;
-    let save_state = line.clone();
-    let parsed_op = Operator::try_parse_from_peek(line, ());
-    if let Ok(op) = parsed_op {
-        return Some(Token::Operator(op));
-    };
-    *line = save_state;
-    None
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::token::{Operator, Token};
+    use crate::token::{Bracket, BracketState, BracketType, Operator, TokenData};
 
     use super::TokenScanner;
 
@@ -77,9 +62,10 @@ mod tests {
     fn just_nums() {
         assert_eq!(
             TokenScanner::new("1 2 3 4\n 5 6 7 8".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
                 .collect::<Vec<_>>(),
             [1, 2, 3, 4, 5, 6, 7, 8]
-                .map(Token::Number)
+                .map(TokenData::Number)
                 .into_iter()
                 .collect::<Vec<_>>()
         )
@@ -88,16 +74,17 @@ mod tests {
     fn just_ops() {
         assert_eq!(
             TokenScanner::new("+ + / -\n * - / %".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
                 .collect::<Vec<_>>(),
             vec![
-                Token::Operator(Operator::Add),
-                Token::Operator(Operator::Add),
-                Token::Operator(Operator::Div),
-                Token::Operator(Operator::Sub),
-                Token::Operator(Operator::Mul),
-                Token::Operator(Operator::Sub),
-                Token::Operator(Operator::Div),
-                Token::Operator(Operator::Mod),
+                TokenData::Operator(Operator::Add),
+                TokenData::Operator(Operator::Add),
+                TokenData::Operator(Operator::Div),
+                TokenData::Operator(Operator::Sub),
+                TokenData::Operator(Operator::Mul),
+                TokenData::Operator(Operator::Sub),
+                TokenData::Operator(Operator::Div),
+                TokenData::Operator(Operator::Mod),
             ]
         )
     }
@@ -110,23 +97,24 @@ mod tests {
                     .lines()
                     .map(|s| s.to_string())
             )
+            .map(|t| t.token_data)
             .collect::<Vec<_>>(),
             vec![
-                Token::Number(1),
-                Token::Number(1),
-                Token::Operator(Operator::Add),
-                Token::Number(2),
-                Token::Number(2),
-                Token::Operator(Operator::Add),
-                Token::Number(3),
-                Token::Operator(Operator::Div),
-                Token::Number(4),
-                Token::Operator(Operator::Sub),
-                Token::Operator(Operator::Mul),
-                Token::Number(-1),
-                Token::Operator(Operator::Div),
-                Token::Number(1),
-                Token::Operator(Operator::Mod),
+                TokenData::Number(1),
+                TokenData::Number(1),
+                TokenData::Operator(Operator::Add),
+                TokenData::Number(2),
+                TokenData::Number(2),
+                TokenData::Operator(Operator::Add),
+                TokenData::Number(3),
+                TokenData::Operator(Operator::Div),
+                TokenData::Number(4),
+                TokenData::Operator(Operator::Sub),
+                TokenData::Operator(Operator::Mul),
+                TokenData::Number(-1),
+                TokenData::Operator(Operator::Div),
+                TokenData::Number(1),
+                TokenData::Operator(Operator::Mod),
             ]
         )
     }
@@ -134,16 +122,62 @@ mod tests {
     #[test]
     fn space_around_newline() {
         assert_eq!(
-            TokenScanner::new("1 \n 2".lines().map(|s| s.to_string())).collect::<Vec<_>>(),
-            vec![Token::Number(1), Token::Number(2)],
+            TokenScanner::new("1 \n 2".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
+                .collect::<Vec<_>>(),
+            vec![TokenData::Number(1), TokenData::Number(2)],
         )
     }
 
     #[test]
     fn negative_one_and_minus() {
         assert_eq!(
-            TokenScanner::new("-1 - ".lines().map(|s| s.to_string())).collect::<Vec<_>>(),
-            vec![Token::Number(-1), Token::Operator(Operator::Sub)],
+            TokenScanner::new("-1 - ".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
+                .collect::<Vec<_>>(),
+            vec![TokenData::Number(-1), TokenData::Operator(Operator::Sub)],
+        )
+    }
+
+    #[test]
+    fn negative_one_and_minus_with_parens() {
+        assert_eq!(
+            TokenScanner::new("( -1 - ) ".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
+                .collect::<Vec<_>>(),
+            vec![
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Number(-1),
+                TokenData::Operator(Operator::Sub),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close))
+            ],
+        )
+    }
+
+    #[test]
+    fn just_parens() {
+        assert_eq!(
+            TokenScanner::new("())())()(()()())".lines().map(|s| s.to_string()))
+                .map(|t| t.token_data)
+                .collect::<Vec<_>>(),
+            vec![
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+            ],
         )
     }
 }

@@ -62,7 +62,7 @@ where
 pub trait TryParseFromPeek<T>: Sized {
     type Err;
     type ParseContext;
-    fn try_parse_from_peek<P: Peek<Item = T>>(
+    fn try_parse_from_peek<P: Peek<Item = T> + Clone>(
         peek: &mut P,
         context: Self::ParseContext,
     ) -> Result<Self, Self::Err>;
@@ -74,7 +74,7 @@ macro_rules! try_parse_unsigned_from_iter {
             impl TryParseFromPeek<char> for $unsigned_int {
                 type Err = std::num::IntErrorKind;
                 type ParseContext = u32;
-                fn try_parse_from_peek<P:Peek<Item=char>>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err>{
+                fn try_parse_from_peek<P:Peek<Item=char>+Clone>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err>{
                     let radix_as_self = radix as Self;
                     let char_to_digit = |c:&char| c.to_digit(radix).map(|d|d as Self);
                     let mut digits = <&mut P as Peek>::peek_while(chars,char_to_digit);
@@ -100,7 +100,7 @@ macro_rules! try_parse_signed_from_iter {
 
             type ParseContext=u32;
 
-            fn try_parse_from_peek<P:Peek<Item=char>>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err> {
+            fn try_parse_from_peek<P:Peek<Item=char>+Clone>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err> {
                 match chars.peek() {
                     Some('-')=>{
                         chars.advance();
@@ -152,8 +152,8 @@ mod tests {
     macro_rules! assert_try_parse_from_str_err {
         ($T:ty, $source:expr => $err:expr; $radix:expr) => {
             {
-                let mut chars = $source.chars();
-                let res = <$T as super::TryParseFromPeek<char>>::try_parse_from_peek(&mut (&mut chars).peekable(),$radix);
+                let mut chars = $source.chars().peekable();
+                let res = <$T as super::TryParseFromPeek<char>>::try_parse_from_peek(&mut chars,$radix);
                 assert_eq!(res, Err($err))
             }
         };

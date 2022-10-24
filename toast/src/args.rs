@@ -1,10 +1,5 @@
 //! This module contains all processing for the command line arguments
 //! To start, take a look at [`ToastArgs`]'
-//! 
-
-use std::{default, fmt::Display};
-
-use clap::{ArgGroup, FromArgMatches};
 
 pub const TOAST_ASCII:&str = r#"================
  ###### ######
@@ -29,15 +24,15 @@ pub enum CompilerVerbosity {
 pub struct ToastArgs {
     /// The path to the file which should be compiled
     #[arg(value_name = "source")] 
-    source:String,
+    pub source:String,
     /// The file path where the compiled program should be stored
     #[arg(short, long, value_name = "output")] 
-    output:Option<String>,
+    pub output:Option<String>,
     #[arg(default_value="silent",short, value_name = "verbosity")] 
-    verbosity:CompilerVerbosity,
+    pub verbosity:CompilerVerbosity,
     // / The amount of logging the 
     // #[clap(flatten)]
-    // verbosity:CompilerVerbosity,
+    // pub verbosity:CompilerVerbosity,
 }
 
 // Below is the experimental implementation of CompilerVerbosity which would

@@ -12,9 +12,6 @@ pub enum BracketState {
 
 #[derive(Debug,Copy, Clone,Eq, PartialEq)]
 pub enum Bracket {
-    Angle,
-    Curly,
-    Square,
     Parenthesis,
 }
 
@@ -36,9 +33,9 @@ impl Debug for Operator {
             Self::Div => "/",
             Self::Mod => "%",
         };
-        write!(f,"<[OP]{}>",s)
+        write!(f,"[Op: {}]",s)
     }
-}
+} 
 
 pub struct UnknownOperator(char);
 impl TryFrom<char> for Operator {
@@ -97,13 +94,11 @@ impl FromStr for Keyword {
 #[derive(Clone, PartialEq)]
 pub enum Literal {
     Number(NumericLiteral),
-    String(String),
 }
 impl Debug for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::Number(n) => Debug::fmt(n,f),
-            Literal::String(s) => write!(f,"<[STR, {}]{:?}>",s.len(),s)
         }
     }
 }

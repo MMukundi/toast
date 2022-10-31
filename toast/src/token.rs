@@ -98,7 +98,7 @@ impl TryFrom<char> for Bracket {
 impl TryParseFromPeek<char> for Bracket {
     type Err = Option<char>;
     type ParseContext = ();
-    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char> + Clone>(
+    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char>>(
         peek: &mut P,
         _context: Self::ParseContext,
     ) -> Result<Self, Self::Err> {
@@ -114,11 +114,11 @@ impl TryParseFromPeek<char> for Bracket {
 pub struct FileLocation {
     pub line: usize,
     pub column: usize,
-    // length: usize,
+    length: usize,
 }
 impl FileLocation {
-    pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column }
+    pub fn new(line: usize, column: usize, length: usize) -> Self {
+        Self { line, column, length }
     }
 }
 
@@ -162,7 +162,7 @@ pub enum ParseTokenErr {
 impl TryParseFromPeek<char> for TokenData {
     type Err = ParseTokenErr;
     type ParseContext = ();
-    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char> + Clone>(
+    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char>>(
         line: &mut P,
         _context: Self::ParseContext,
     ) -> Result<Self, Self::Err> {

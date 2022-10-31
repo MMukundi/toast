@@ -1,4 +1,4 @@
-use std::{fmt::Debug, iter::Peekable};
+use std::{fmt::Debug, iter::{Peekable}};
 
 pub trait Peek {
     type Item;
@@ -38,6 +38,46 @@ impl<I: Iterator> Peek for Peekable<I> {
     }
 }
 
+#[derive(Debug,Clone)]
+pub struct Counted<I> {
+    inner:I,
+    count:usize
+}
+impl <I> Counted<I> {
+    pub fn new(inner:I)->Self{
+        Self {
+            inner,
+            count:0
+        }
+    }
+    pub fn index(&self)->usize{
+        self.count
+    }
+    fn increment_count(&mut self){
+        self.count+=1;
+    }
+}
+impl <P:Peek> Peek for Counted<P>{
+    type Item=P::Item;
+
+    fn advance(&mut self) -> Option<Self::Item> {
+        self.increment_count();
+        P::advance(&mut self.inner)
+    }
+
+    fn peek(&mut self) -> Option<&Self::Item> {
+        P::peek(&mut self.inner)
+    }
+}
+impl <I:Iterator> Iterator for Counted<I>{
+    type Item=I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.increment_count();
+        self.inner.next()
+    }
+}
+
 pub struct PeekWhile<P, F> {
     peek: P,
     func: F,
@@ -62,7 +102,7 @@ where
 pub trait TryParseFromPeek<T>: Sized {
     type Err;
     type ParseContext;
-    fn try_parse_from_peek<P: Peek<Item = T> + Clone>(
+    fn try_parse_from_peek<P: Peek<Item = T>>(
         peek: &mut P,
         context: Self::ParseContext,
     ) -> Result<Self, Self::Err>;
@@ -74,7 +114,7 @@ macro_rules! try_parse_unsigned_from_iter {
             impl TryParseFromPeek<char> for $unsigned_int {
                 type Err = std::num::IntErrorKind;
                 type ParseContext = u32;
-                fn try_parse_from_peek<P:Peek<Item=char>+Clone>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err>{
+                fn try_parse_from_peek<P:Peek<Item=char>>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err>{
                     let radix_as_self = radix as Self;
                     let char_to_digit = |c:&char| c.to_digit(radix).map(|d|d as Self);
                     let mut digits = <&mut P as Peek>::peek_while(chars,char_to_digit);
@@ -100,7 +140,7 @@ macro_rules! try_parse_signed_from_iter {
 
             type ParseContext=u32;
 
-            fn try_parse_from_peek<P:Peek<Item=char>+Clone>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err> {
+            fn try_parse_from_peek<P:Peek<Item=char>>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err> {
                 match chars.peek() {
                     Some('-')=>{
                         chars.advance();

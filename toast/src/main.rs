@@ -1,9 +1,10 @@
-use std::{fs::File, io::Read};
+use std::{io::{Write}};
 
-use crate::token_scanner::TokenScanner;
+use crate::{token_scanner::TokenScanner, stringy::PoppableString};
 
 mod args;
 mod parser;
+mod stringy;
 mod token;
 mod token_scanner;
 mod try_parse_from_iter;
@@ -13,16 +14,29 @@ fn main() -> std::io::Result<()> {
         use clap::Parser;
         args::ToastArgs::parse()
     };
-    dbg!(&args);
-    // let mut file = File::open(&args.compiler_arguments.source)?;
-    // let mut contents = String::new();
-    // file.read_to_string(&mut contents)?;
-    // if args.interpreter_mode {
-    //     for token in TokenScanner::new(contents.lines().map(|l|l.to_string())){
-    //         dbg!(token);
-    //     }
-    // }else{
-    //     panic!("Toast cannot yet be run as a compiler")
-    // }
+    // dbg!(&args);
+    match &args.mode {
+        args::Mode::Compile(_) => {
+            // let mut file = File::open(&args.compiler_arguments.source)?;
+            // let mut contents = String::new();
+            // file.read_to_string(&mut contents)?;
+            panic!("Toast cannot yet be run as a compiler")
+        }
+        args::Mode::Interpret(int) => {
+            // let mut buffer = String::new();
+            let mut lines = std::io::stdin()
+                .lines()
+                .map(|a| a.expect("Error reading from the terminal"))
+                .map(PoppableString::new);
+            let prompts = std::iter::from_fn(||{
+                let mut io = std::io::stdout().lock();
+                write!(io,"{} ",int.prompt).and_then(|_|io.flush()).expect("Error writing the prompt string ");
+                lines.next()
+            });
+            for token in TokenScanner::new(prompts) {
+                println!("{:?}", token);
+            }
+        }
+    }
     Ok(())
 }

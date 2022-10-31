@@ -30,7 +30,7 @@ pub struct CompilerArguments {
 #[derive(Debug, Clone, clap::Args)]
 #[command(about = "Run the toast interpreter")]
 pub struct InterpreterArguments {
-    #[arg(default_value = ">>", value_name = "output")]
+    #[arg(short, long, default_value = ">>", value_name = "prompt")]
     pub prompt: String,
 }
 #[derive(Debug, Clone, clap::Parser)]

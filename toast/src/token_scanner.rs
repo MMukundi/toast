@@ -85,16 +85,12 @@ fn skip_whitespace<P: Peek<Item = char>>(peek: &mut P) {
         .for_each(drop);
 }
 
-
-pub type TokenResult = Result<Token,ParseTokenErr>;
-
 #[cfg(test)]
 mod tests {
     use crate::stringy::Poppable;
-    use crate::token::{Bracket, BracketState, BracketType, Operator, TokenData, ParseTokenErr, Token};
-    use crate::try_parse_from_iter::TryParseFromPeek;
+    use crate::token::{Bracket, BracketState, BracketType, Operator, TokenData, ParseTokenErr};
 
-    use super::{TokenScanner,TokenResult};
+    use super::TokenScanner;
 
     fn get_tokens<T: IntoIterator<Item = S>,S:Poppable>(iter:T)->Result<Vec<TokenData>,ParseTokenErr> {
         TokenScanner::new(iter.into_iter())
@@ -177,10 +173,10 @@ mod tests {
         assert_eq!(
             get_tokens("( -1 - ) ".lines()),
             Ok(vec![
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
                 TokenData::Number(-1),
                 TokenData::Operator(Operator::Sub),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close))
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis))
             ]),
         )
     }
@@ -190,22 +186,22 @@ mod tests {
         assert_eq!(
             get_tokens("())())()(()()())".lines()),
             Ok(vec![
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Open)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
-                TokenData::Bracket(Bracket::new(BracketType::Parenthesis, BracketState::Close)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
+                TokenData::Bracket(Bracket::Close(BracketType::Parenthesis)),
             ]),
         )
     }

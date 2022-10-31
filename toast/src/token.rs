@@ -67,29 +67,25 @@ impl TryParseFromPeek<char> for Operator {
     }
 }
 impl BracketType {
-    pub fn open(&self) -> char {
-        match self {
-            Self::Parenthesis => '(',
-        }
-    }
-    pub fn close(&self) -> char {
-        match self {
-            Self::Parenthesis => ')',
-        }
-    }
+    // #[inline]
+    // pub const fn open(&self) -> char {
+    //     match self {
+    //         Self::Parenthesis => '(',
+    //     }
+    // }
+    // #[inline]
+    // pub const fn close(&self) -> char {
+    //     match self {
+    //         Self::Parenthesis => ')',
+    //     }
+    // }
 }
 impl TryFrom<char> for Bracket {
     type Error = char;
     fn try_from(value: char) -> Result<Self, Self::Error> {
         match value {
-            '(' => Ok(Self {
-                bracket: BracketType::Parenthesis,
-                state: BracketState::Open,
-            }),
-            ')' => Ok(Self {
-                bracket: BracketType::Parenthesis,
-                state: BracketState::Close,
-            }),
+            '(' => Ok(Self::Open(BracketType::Parenthesis)),
+            ')' => Ok(Self::Close(BracketType::Parenthesis)),
             c => Err(c),
         }
     }
@@ -123,18 +119,27 @@ impl FileLocation {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Bracket {
-    bracket: BracketType,
-    state: BracketState,
+pub enum Bracket {
+    Open(BracketType),
+    Close(BracketType),
 }
 impl Bracket {
-    pub fn new(bracket: BracketType, state: BracketState) -> Self {
-        Self { bracket, state }
+    #[inline]
+    pub const fn new_open(bracket: BracketType) -> Self {
+        Self::Open(bracket)
+    }
+    #[inline]
+    pub const fn new_close(bracket: BracketType) -> Self {
+        Self::Close(bracket)
     }
 }
 impl Debug for Bracket {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[Bracket: {:?}{:?}]", self.state, self.bracket)
+        let (state_string, bracket_type) = match self {
+            Self::Close(ref bracket)=>("Close",bracket),
+            Self::Open(ref bracket)=>("Open",bracket),
+        };
+        write!(f, "[Bracket: {}{:?}]", state_string, bracket_type)
     }
 }
 

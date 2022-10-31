@@ -88,7 +88,7 @@ fn skip_whitespace<P: Peek<Item = char>>(peek: &mut P) {
 #[cfg(test)]
 mod tests {
     use crate::stringy::Poppable;
-    use crate::token::{Bracket, BracketState, BracketType, Operator, TokenData, ParseTokenErr};
+    use crate::token::{Bracket, BracketType, Operator, TokenData, ParseTokenErr};
 
     use super::TokenScanner;
 

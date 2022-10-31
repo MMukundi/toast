@@ -1,11 +1,6 @@
 use crate::try_parse_from_iter::TryParseFromPeek;
 use std::fmt::{Debug, Formatter};
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BracketState {
-    Open,
-    Close,
-}
+use crate::try_parse_from_iter::Peek;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BracketType {
@@ -106,6 +101,53 @@ impl TryParseFromPeek<char> for Bracket {
     }
 }
 
+#[derive(Clone,PartialEq, Eq)]
+pub struct IdentifierLike{
+    pub name:String
+}
+impl Debug for IdentifierLike {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f,"[Identifier: {}]",self.name)
+    }
+}
+pub enum IdentifierError {
+    Empty,
+    InvalidIdentifierChar(char)
+}
+#[inline]
+pub fn is_ident_char(c:&char)->bool{
+    c.is_numeric() || is_first_ident_char(c)
+}
+#[inline]
+pub fn is_first_ident_char(c:&char)->bool{
+    c.is_alphabetic() || c==&'_'
+}
+impl TryParseFromPeek<char> for IdentifierLike {
+    type Err=IdentifierError;
+
+    type ParseContext=();
+
+    fn try_parse_from_peek<P: crate::try_parse_from_iter::Peek<Item = char>>(
+        peek: &mut P,
+        _: Self::ParseContext,
+    ) -> Result<Self, Self::Err> {
+        match peek.peek() {
+            Some(f) => {
+                if is_first_ident_char(f) {
+                    let mut name = f.to_string();
+                    name.extend(peek.peek_while(|c|{
+                        is_ident_char(c).then_some(*c)
+                    }));
+                    Ok(Self { name })
+                }else {
+                    Err(Self::Err::InvalidIdentifierChar(*f))
+                }
+            },
+            None=>Err(Self::Err::Empty)
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SourceLocation {
     pub line: usize,
@@ -123,16 +165,6 @@ pub enum Bracket {
     Open(BracketType),
     Close(BracketType),
 }
-impl Bracket {
-    #[inline]
-    pub const fn new_open(bracket: BracketType) -> Self {
-        Self::Open(bracket)
-    }
-    #[inline]
-    pub const fn new_close(bracket: BracketType) -> Self {
-        Self::Close(bracket)
-    }
-}
 impl Debug for Bracket {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let (state_string, bracket_type) = match self {
@@ -148,13 +180,15 @@ pub enum TokenData {
     Bracket(Bracket),
     Number(isize),
     Operator(Operator),
+    Identifier(IdentifierLike),
 }
 impl Debug for TokenData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Bracket(b) => Debug::fmt(b, f),
-            Self::Number(n) => write!(f, "[Number: {:?}]", n),
             Self::Operator(op) => Debug::fmt(op, f),
+            Self::Identifier(ident) => Debug::fmt(ident, f),
+            Self::Number(n) => write!(f, "[Number: {:?}]", n),
         }
     }
 }

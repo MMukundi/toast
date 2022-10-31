@@ -107,12 +107,12 @@ impl TryParseFromPeek<char> for Bracket {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct FileLocation {
+pub struct SourceLocation {
     pub line: usize,
     pub column: usize,
     length: usize,
 }
-impl FileLocation {
+impl SourceLocation {
     pub fn new(line: usize, column: usize, length: usize) -> Self {
         Self { line, column, length }
     }
@@ -201,12 +201,12 @@ impl TryParseFromPeek<char> for TokenData {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Token {
-    pub locaiton: FileLocation,
+    pub locaiton: SourceLocation,
     pub token_data: TokenData,
 }
 
 impl Token {
-    pub fn new(location: FileLocation, data: TokenData) -> Self {
+    pub fn new(location: SourceLocation, data: TokenData) -> Self {
         Self {
             locaiton: location,
             token_data: data,

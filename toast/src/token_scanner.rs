@@ -2,7 +2,7 @@ use std::iter::{Peekable};
 
 
 use crate::stringy::{Poppable, StringyChars};
-use crate::token::{FileLocation, Token, TokenData, ParseTokenErr};
+use crate::token::{SourceLocation, Token, TokenData, ParseTokenErr};
 use crate::try_parse_from_iter::{Peek, TryParseFromPeek, Counted};
 
 pub struct TokenScanner<T, S:Poppable> {
@@ -70,7 +70,7 @@ impl<T: Iterator<Item = S>,S:Poppable> Iterator for TokenScanner<T, S>
             // .ok()
             .map(|data| {
                 let end_position= line_chars.index();
-                Token::new(FileLocation::new(self.line_counter, current_position+1,end_position-current_position), data)
+                Token::new(SourceLocation::new(self.line_counter, current_position+1,end_position-current_position), data)
             });
         skip_whitespace(&mut line_chars);
         if token.is_err() {

@@ -76,6 +76,9 @@ impl <I:Iterator> Iterator for Counted<I>{
         self.increment_count();
         self.inner.next()
     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 pub struct PeekWhile<P, F> {
@@ -116,15 +119,12 @@ macro_rules! try_parse_unsigned_from_iter {
                 type ParseContext = u32;
                 fn try_parse_from_peek<P:Peek<Item=char>>(chars: &mut P,radix:Self::ParseContext)-> Result<Self,Self::Err>{
                     let radix_as_self = radix as Self;
-                    let char_to_digit = |c:&char| c.to_digit(radix).map(|d|d as Self);
-                    let mut digits = <&mut P as Peek>::peek_while(chars,char_to_digit);
-                    if let Some(first_digit) = digits.next() {
-                        let mut current_value = first_digit;
-                        while let Some(next_digit) = digits.next() {
-                            current_value= (current_value as Self).checked_mul(radix_as_self).and_then(|n|n.checked_add(next_digit as Self)).ok_or(Self::Err::PosOverflow)?;
-                        };
-                        Ok(current_value)
-                    }else {
+                    let mut digits = <&mut P as Peek>::peek_while(chars,|c| c.to_digit(radix).map(|d|d as Self));
+                    if let Some(first) = digits.next(){
+                        digits.try_fold(first as Self, |current_value,next_digit|{
+                            (current_value as Self).checked_mul(radix_as_self).and_then(|n|n.checked_add(next_digit as Self)).ok_or(Self::Err::PosOverflow)
+                        })
+                    } else {
                         Err(Self::Err::InvalidDigit)
                     }
                 }
@@ -134,7 +134,7 @@ macro_rules! try_parse_unsigned_from_iter {
 }
 try_parse_unsigned_from_iter!(u8, u16, u32, u64, u128, usize);
 macro_rules! try_parse_signed_from_iter {
-    ($($signed_int:ty : $unsigned_int:ty),*) => {
+    ($($signed_int:ty),*) => {
         $(impl TryParseFromPeek<char> for $signed_int {
             type Err=std::num::IntErrorKind;
 
@@ -145,21 +145,28 @@ macro_rules! try_parse_signed_from_iter {
                     Some('-')=>{
                         chars.advance();
                         let radix_as_self = radix as Self;
-                        let char_to_digit = |c:&char| c.to_digit(radix).map(|d|d as Self);
-                        let mut digits = <&mut P as Peek>::peek_while(chars,char_to_digit);
-                        if let Some(first_digit) = digits.next() {
-                            let mut current_value = -first_digit;
-                            while let Some(next_digit) = digits.next() {
-                                current_value= (current_value as Self).checked_mul(radix_as_self).and_then(|n|n.checked_sub(next_digit as Self)).ok_or(Self::Err::NegOverflow)?;
-                            };
-                            Ok(current_value)
-                        }else {
+                        let mut digits = <&mut P as Peek>::peek_while(chars,|c| c.to_digit(radix).map(|d|d as Self));
+                        if let Some(first) = digits.next(){
+                            digits.try_fold(-(first as Self), |current_value,next_digit|{
+                                (current_value as Self).checked_mul(radix_as_self).and_then(|n|n.checked_sub(next_digit as Self)).ok_or(Self::Err::NegOverflow)
+                            })
+                        } else {
                             Err(Self::Err::InvalidDigit)
                         }
                     },
-                    Some(_)=>{
-                        <$unsigned_int as TryParseFromPeek<char>>::try_parse_from_peek(chars, radix)
-                        .and_then(|value|Self::try_from(value).map_err(|_|Self::Err::PosOverflow))
+                    Some(c) if c.is_ascii_digit()=>{
+                        let radix_as_self = radix as Self;
+                        let mut digits = <&mut P as Peek>::peek_while(chars,|c| c.to_digit(radix).map(|d|d as Self));
+                        if let Some(first) = digits.next(){
+                            digits.try_fold(first as Self, |current_value,next_digit|{
+                                (current_value as Self).checked_mul(radix_as_self).and_then(|n|n.checked_add(next_digit as Self)).ok_or(Self::Err::PosOverflow)
+                            })
+                        } else {
+                            Err(Self::Err::InvalidDigit)
+                        }
+                    },
+                    Some(_) =>{
+                        Err(Self::Err::InvalidDigit)
                     },
                     _=>{
                         return Err(Self::Err::Empty)
@@ -170,7 +177,7 @@ macro_rules! try_parse_signed_from_iter {
         })*
     }
 }
-try_parse_signed_from_iter!(i8: u8, i16: u8, i32: u16, i64: u32, i128: u64, isize: usize);
+try_parse_signed_from_iter!(i8, i16, i32, i64, i128, isize);
 
 #[cfg(test)]
 mod tests {

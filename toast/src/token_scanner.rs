@@ -88,7 +88,7 @@ fn skip_whitespace<P: Peek<Item = char>>(peek: &mut P) {
 #[cfg(test)]
 mod tests {
     use crate::stringy::Poppable;
-    use crate::token::{Bracket, BracketType, Operator, TokenData, ParseTokenErr};
+    use crate::token::{Bracket, BracketType, Operator, TokenData, ParseTokenErr, IdentifierLike};
 
     use super::TokenScanner;
 
@@ -103,7 +103,7 @@ mod tests {
         assert_eq!(
             get_tokens("1 2 3 4\n 5 6 7 8".lines()),
             Ok([1, 2, 3, 4, 5, 6, 7, 8]
-                .map(TokenData::Number)
+                .map(TokenData::from)
                 .into_iter()
                 .collect::<Vec<_>>())
         )
@@ -133,20 +133,20 @@ mod tests {
                     .lines()
             ),
             Ok(vec![
-                TokenData::Number(1),
-                TokenData::Number(1),
+                TokenData::from(1),
+                TokenData::from(1),
                 TokenData::Operator(Operator::Add),
-                TokenData::Number(2),
-                TokenData::Number(2),
+                TokenData::from(2),
+                TokenData::from(2),
                 TokenData::Operator(Operator::Add),
-                TokenData::Number(3),
+                TokenData::from(3),
                 TokenData::Operator(Operator::Div),
-                TokenData::Number(4),
+                TokenData::from(4),
                 TokenData::Operator(Operator::Sub),
                 TokenData::Operator(Operator::Mul),
-                TokenData::Number(-1),
+                TokenData::from(-1),
                 TokenData::Operator(Operator::Div),
-                TokenData::Number(1),
+                TokenData::from(1),
                 TokenData::Operator(Operator::Mod),
             ])
         )
@@ -156,7 +156,7 @@ mod tests {
     fn space_around_newline() {
         assert_eq!(
             get_tokens("1 \n 2".lines()),
-            Ok(vec![TokenData::Number(1), TokenData::Number(2)]),
+            Ok(vec![TokenData::from(1), TokenData::from(2)]),
         )
     }
 
@@ -164,7 +164,7 @@ mod tests {
     fn negative_one_and_minus() {
         assert_eq!(
             get_tokens("-1 - ".lines()),
-            Ok(vec![TokenData::Number(-1), TokenData::Operator(Operator::Sub)])
+            Ok(vec![TokenData::from(-1), TokenData::Operator(Operator::Sub)])
         )
     }
 
@@ -174,7 +174,7 @@ mod tests {
             get_tokens("( -1 - ) ".lines()),
             Ok(vec![
                 TokenData::Bracket(Bracket::Open(BracketType::Parenthesis)),
-                TokenData::Number(-1),
+                TokenData::from(-1),
                 TokenData::Operator(Operator::Sub),
                 TokenData::Bracket(Bracket::Close(BracketType::Parenthesis))
             ]),
@@ -213,10 +213,18 @@ mod tests {
         )
     }
     #[test]
-    fn invalid() {
+    fn identifier() {
         assert_eq!(
-            get_tokens("not_a_keyword".lines()),
-            Err(ParseTokenErr::UnexpectedCharacter('n')),
+            get_tokens("not_a_keyword35".lines()),
+            Ok(vec![TokenData::Identifier("not_a_keyword35".to_string().into())]),
+        )
+    }
+    #[test]
+    fn identifier_read_as_siffix() {
+        use crate::token::NumericLiteral;
+        assert_eq!(
+            get_tokens("35not_a_keyword".lines()),
+            Ok(vec![TokenData::Number(NumericLiteral::new(35, Some("not_a_keyword".to_string())))]),
         )
     }
 }

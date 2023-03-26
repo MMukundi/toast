@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Formatter};
-use clap::Id;
 
-use crate::try_parse_from_iter::{Peek,TryParseFromPeek};
+use crate::try_parse_from_iter::{Peek, TryParseFromPeek};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BracketType {
@@ -102,20 +101,18 @@ impl TryParseFromPeek<char> for Bracket {
     }
 }
 
-#[derive(Clone,PartialEq, Eq)]
-pub struct IdentifierLike{
-    pub name:String
+#[derive(Clone, PartialEq, Eq)]
+pub struct IdentifierLike {
+    pub name: String,
 }
-impl From<String> for IdentifierLike{
+impl From<String> for IdentifierLike {
     fn from(name: String) -> Self {
-        Self{
-            name
-        }
+        Self { name }
     }
 }
 impl Debug for IdentifierLike {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"[Identifier: {}]",self.name)
+        write!(f, "[Identifier: {}]", self.name)
     }
 }
 pub enum IdentifierError {
@@ -123,17 +120,17 @@ pub enum IdentifierError {
     Empty,
 }
 #[inline]
-pub fn is_ident_char(c:&char)->bool{
+pub fn is_ident_char(c: &char) -> bool {
     c.is_numeric() || is_first_ident_char(c)
 }
 #[inline]
-pub fn is_first_ident_char(c:&char)->bool{
-    c.is_alphabetic() || *c=='_'
+pub fn is_first_ident_char(c: &char) -> bool {
+    c.is_alphabetic() || *c == '_'
 }
 impl TryParseFromPeek<char> for IdentifierLike {
-    type Err=IdentifierError;
+    type Err = IdentifierError;
 
-    type ParseContext=();
+    type ParseContext = ();
 
     fn try_parse_from_peek<P: Peek<Item = char>>(
         peek: &mut P,
@@ -143,16 +140,16 @@ impl TryParseFromPeek<char> for IdentifierLike {
             Some(f) => {
                 if is_first_ident_char(f) {
                     let mut name = String::new();
-                    name.extend(peek.peek_while(|c|{
+                    name.extend(peek.peek_while(|c| {
                         // Some(*c).filter(is_ident_char)
                         is_ident_char(c).then_some(*c)
                     }));
                     Ok(Self { name })
-                }else {
+                } else {
                     Err(Self::Err::InvalidIdentifierCharacter(*f))
                 }
-            },
-            None=>Err(Self::Err::Empty)
+            }
+            None => Err(Self::Err::Empty),
         }
     }
 }
@@ -165,7 +162,11 @@ pub struct SourceLocation {
 }
 impl SourceLocation {
     pub fn new(line: usize, column: usize, length: usize) -> Self {
-        Self { line, column, length }
+        Self {
+            line,
+            column,
+            length,
+        }
     }
 }
 
@@ -177,39 +178,44 @@ pub enum Bracket {
 impl Debug for Bracket {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let (state_string, bracket_type) = match self {
-            Self::Close(ref bracket)=>("Close",bracket),
-            Self::Open(ref bracket)=>("Open",bracket),
+            Self::Close(ref bracket) => ("Close", bracket),
+            Self::Open(ref bracket) => ("Open", bracket),
         };
         write!(f, "[Bracket: {}{:?}]", state_string, bracket_type)
     }
 }
 
-type Num =isize;
+type Num = isize;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct NumericLiteral {
     value: isize,
-    suffix: Option<String>
+    suffix: Option<String>,
 }
-impl NumericLiteral{
-    pub fn new (value: isize,suffix: Option<String>)->Self {
-        Self {
-            value,
-            suffix
-        }
+impl NumericLiteral {
+    pub fn new(value: isize, suffix: Option<String>) -> Self {
+        Self { value, suffix }
     }
 }
-impl From<Num> for NumericLiteral{
+impl From<Num> for NumericLiteral {
     fn from(value: Num) -> Self {
-        Self { value, suffix: None }
+        Self {
+            value,
+            suffix: None,
+        }
     }
 }
 impl Debug for NumericLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,"[Number: {}{}]",self.value, match self.suffix {
-            Some(ref s) => s,
-            None => ""
-        })
+        write!(
+            f,
+            "[Number: {}:{}]",
+            self.value,
+            match self.suffix {
+                Some(ref s) => s,
+                None => "",
+            }
+        )
     }
 }
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -218,27 +224,26 @@ pub enum NumericLiteralError {
     // BadSuffix(String),
 }
 impl TryParseFromPeek<char> for NumericLiteral {
-    type Err=NumericLiteralError;
+    type Err = NumericLiteralError;
 
-    type ParseContext=u32;
+    type ParseContext = u32;
 
     fn try_parse_from_peek<P: Peek<Item = char>>(
         peek: &mut P,
         context: Self::ParseContext,
     ) -> Result<Self, Self::Err> {
-        isize::try_parse_from_peek(peek, context).map_err(NumericLiteralError::Value).and_then(|value|{
-            let mut non_whitespace = peek.peek_while(|c|(!c.is_whitespace()).then_some(*c));
-            let suffix = non_whitespace.next().map(|first|{
-                non_whitespace.fold(first.to_string(),|mut suffix, c|{
-                    suffix.push(c);
-                    suffix
-                })
-            });
-           Ok(Self {
-                value,
-                suffix
+        isize::try_parse_from_peek(peek, context)
+            .map_err(NumericLiteralError::Value)
+            .and_then(|value| {
+                let mut non_whitespace = peek.peek_while(|c| (!c.is_whitespace()).then_some(*c));
+                let suffix = non_whitespace.next().map(|first| {
+                    non_whitespace.fold(first.to_string(), |mut suffix, c| {
+                        suffix.push(c);
+                        suffix
+                    })
+                });
+                Ok(Self { value, suffix })
             })
-        })
     }
 }
 
@@ -249,22 +254,25 @@ pub enum TokenData {
     Operator(Operator),
     Identifier(IdentifierLike),
 }
-impl From<Bracket> for TokenData{
+impl From<Bracket> for TokenData {
     fn from(bracket: Bracket) -> Self {
         Self::Bracket(bracket)
     }
 }
-impl <N> From<N> for TokenData where NumericLiteral:From<N>{
+impl<N> From<N> for TokenData
+where
+    NumericLiteral: From<N>,
+{
     fn from(number: N) -> Self {
         Self::Number(number.into())
     }
 }
-impl From<Operator> for TokenData{
+impl From<Operator> for TokenData {
     fn from(operator: Operator) -> Self {
         Self::Operator(operator)
     }
 }
-impl From<IdentifierLike> for TokenData{
+impl From<IdentifierLike> for TokenData {
     fn from(identifier: IdentifierLike) -> Self {
         Self::Identifier(identifier)
     }
@@ -302,7 +310,6 @@ impl TryParseFromPeek<char> for TokenData {
             NumericLiteral::try_parse_from_peek(line, 10)
                 .map(TokenData::Number)
                 .or_else(|e| {
-                    dbg!(e);
                     Operator::try_parse_from_peek(line, ())
                         .map(TokenData::Operator)
                         .or_else(|e| match e {
@@ -311,9 +318,11 @@ impl TryParseFromPeek<char> for TokenData {
                                 .map(TokenData::Bracket)
                                 .or_else(|e| {
                                     if let Some(c) = e {
-                                        if let Ok(id)=IdentifierLike::try_parse_from_peek(line, ()){
+                                        if let Ok(id) =
+                                            IdentifierLike::try_parse_from_peek(line, ())
+                                        {
                                             Ok(TokenData::Identifier(id))
-                                        }else{
+                                        } else {
                                             Err(Self::Err::UnexpectedCharacter(c))
                                         }
                                     } else {

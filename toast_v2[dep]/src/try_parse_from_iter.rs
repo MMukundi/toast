@@ -1,4 +1,4 @@
-use std::{fmt::Debug, iter::{Peekable}};
+use std::{fmt::Debug, iter::Peekable};
 
 pub trait Peek {
     type Item;
@@ -38,27 +38,24 @@ impl<I: Iterator> Peek for Peekable<I> {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Counted<I> {
-    inner:I,
-    count:usize
+    inner: I,
+    items_yielded: usize,
 }
-impl <I> Counted<I> {
-    pub fn new(inner:I)->Self{
-        Self {
-            inner,
-            count:0
-        }
+impl<I> Counted<I> {
+    pub fn new(inner: I) -> Self {
+        Self { inner, items_yielded: 0 }
     }
-    pub fn index(&self)->usize{
-        self.count
+    pub fn items_yielded(&self) -> usize {
+        self.items_yielded
     }
-    fn increment_count(&mut self){
-        self.count+=1;
+    fn increment_count(&mut self) {
+        self.items_yielded += 1;
     }
 }
-impl <P:Peek> Peek for Counted<P>{
-    type Item=P::Item;
+impl<P: Peek> Peek for Counted<P> {
+    type Item = P::Item;
 
     fn advance(&mut self) -> Option<Self::Item> {
         self.increment_count();
@@ -69,8 +66,8 @@ impl <P:Peek> Peek for Counted<P>{
         P::peek(&mut self.inner)
     }
 }
-impl <I:Iterator> Iterator for Counted<I>{
-    type Item=I::Item;
+impl<I: Iterator> Iterator for Counted<I> {
+    type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.increment_count();
